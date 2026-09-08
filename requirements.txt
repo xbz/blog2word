@@ -1,0 +1,11 @@
+beautifulsoup4==4.12.3
+chardet==5.2.0
+Flask==3.1.0
+html2text==2024.2.26
+lxml_html_clean==0.4.3
+python-docx==1.1.2
+qstash==3.4.0
+readability-lxml==0.8.1
+requests==2.32.3
+upstash-redis==1.7.0
+vercel==0.5.9

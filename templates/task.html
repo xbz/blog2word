@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>任务进度 - Blog 内容下载器</title>
+  <style>
+    :root {
+      --ink:#172033; --muted:#697386; --line:#e1e6ee; --soft:#f4f7fb; --brand:#3157d5;
+      --green:#16835b; --green-bg:#eaf8f2; --red:#be3445; --red-bg:#fff0f2;
+      --amber:#a26b12; --amber-bg:#fff6df; --blue-bg:#eef2ff;
+    }
+    * { box-sizing: border-box; }
+    body { margin:0; min-height:100vh; background:#eef2f7; color:var(--ink); font:14px/1.5 Inter,ui-sans-serif,system-ui,sans-serif; }
+    button,input { font:inherit; }
+    .shell { max-width:1200px; margin:0 auto; padding:26px 22px 60px; }
+    .topbar { display:flex; align-items:center; justify-content:space-between; margin-bottom:26px; }
+    .brand { display:flex; align-items:center; gap:10px; font-weight:780; }
+    .mark { display:grid; place-items:center; width:32px; height:32px; border-radius:9px; background:var(--brand); color:white; }
+    .new { padding:9px 13px; border:1px solid var(--line); border-radius:9px; background:white; color:var(--ink); text-decoration:none; font-weight:700; }
+    .hero { display:grid; grid-template-columns:1fr auto; gap:22px; align-items:end; padding:26px; background:#172033; color:white; border-radius:18px; box-shadow:0 18px 55px #1e2b421f; }
+    .hero-label { color:#aab8d2; font-size:11px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }
+    h1 { margin:8px 0 5px; font-size:clamp(27px,4vw,40px); line-height:1.1; letter-spacing:-.04em; }
+    .task-meta { display:flex; align-items:center; gap:8px; color:#b8c3d6; font-size:12px; }
+    code { overflow:hidden; max-width:230px; text-overflow:ellipsis; white-space:nowrap; }
+    .copy { padding:4px 7px; border:1px solid #ffffff25; border-radius:6px; background:#ffffff0d; color:#dce4f2; cursor:pointer; font-size:11px; }
+    .result-action { min-width:190px; text-align:right; }
+    .download { display:inline-block; padding:12px 17px; border-radius:10px; background:#ffffff18; color:#aebbd0; text-decoration:none; font-weight:800; white-space:nowrap; pointer-events:none; }
+    .download.visible { background:white; color:#172033; pointer-events:auto; box-shadow:0 8px 24px #0000001f; }
+    .download-note { margin-top:7px; color:#96a5bd; font-size:11px; }
+    .retry-finalize { display:none; margin-top:8px; padding:8px 12px; border:1px solid #ffffff35; border-radius:8px; background:#ffffff10; color:white; cursor:pointer; font-weight:750; }
+    .retry-finalize.visible { display:inline-block; }
+    .task-error { display:none; margin:16px 0 0; padding:12px 14px; border:1px solid #f2c5cb; border-radius:10px; background:#fff2f4; color:#a82e3d; font-size:12px; overflow-wrap:anywhere; }
+    .task-error.visible { display:block; }
+    .overview { display:grid; grid-template-columns:minmax(0,1.5fr) repeat(3,minmax(120px,.55fr)); gap:12px; margin:18px 0; }
+    .card { background:white; border:1px solid #e4e9f0; border-radius:15px; box-shadow:0 12px 36px #24324c0c; }
+    .progress-card { padding:19px; }
+    .progress-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:13px; }
+    .progress-head strong { font-size:15px; }
+    .state { padding:4px 8px; border-radius:999px; background:var(--blue-bg); color:var(--brand); font-size:11px; font-weight:800; }
+    .bar { height:10px; overflow:hidden; border-radius:999px; background:#e9edf4; }
+    .bar span { display:block; height:100%; border-radius:inherit; background:linear-gradient(90deg,#3157d5,#6885e9); transition:width .35s; }
+    .progress-foot { display:flex; justify-content:space-between; margin-top:10px; color:var(--muted); font-size:12px; }
+    .metric { padding:17px; }
+    .metric span { display:block; color:var(--muted); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.07em; }
+    .metric strong { display:block; margin-top:4px; font-size:25px; letter-spacing:-.04em; }
+    .metric.success strong { color:var(--green); } .metric.failed strong { color:var(--red); }
+    .table-card { overflow:hidden; }
+    .table-toolbar { display:flex; gap:12px; align-items:center; justify-content:space-between; padding:17px 18px; border-bottom:1px solid var(--line); }
+    .filters { display:flex; gap:6px; flex-wrap:wrap; }
+    .filter { padding:7px 10px; border:0; border-radius:8px; background:var(--soft); color:#566277; cursor:pointer; font-weight:700; font-size:12px; }
+    .filter.active { background:#172033; color:white; }
+    .search { width:260px; padding:8px 11px; border:1px solid var(--line); border-radius:8px; outline:0; }
+    .search:focus { border-color:#91a5e7; box-shadow:0 0 0 3px #3157d510; }
+    .table-wrap { overflow:auto; max-height:560px; }
+    table { width:100%; border-collapse:collapse; }
+    th { position:sticky; top:0; z-index:1; padding:10px 14px; background:#f8fafc; color:#7a8596; text-align:left; font-size:10px; letter-spacing:.08em; text-transform:uppercase; }
+    td { padding:11px 14px; border-top:1px solid #edf0f4; vertical-align:middle; }
+    td:first-child { width:50px; color:#9aa4b3; }
+    .url { max-width:600px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#3b4658; }
+    .badge { display:inline-block; min-width:74px; padding:4px 7px; border-radius:999px; text-align:center; font-size:10px; font-weight:800; }
+    .completed { background:var(--green-bg); color:var(--green); }
+    .failed { background:var(--red-bg); color:var(--red); }
+    .processing,.retrying { background:var(--amber-bg); color:var(--amber); }
+    .queued { background:var(--soft); color:#6c7787; }
+    .error { color:var(--red); font-size:12px; }
+    .empty { padding:50px; color:var(--muted); text-align:center; }
+    @media(max-width:820px) {
+      .shell{padding:16px 12px 40px}.hero{grid-template-columns:1fr}.overview{grid-template-columns:1fr 1fr}
+      .progress-card{grid-column:1/-1}.table-toolbar{align-items:stretch;flex-direction:column}.search{width:100%}
+      .url{max-width:260px}.task-meta{align-items:flex-start;flex-direction:column}
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div class="brand"><span class="mark">B</span><span>Blog Downloader</span></div>
+      <a class="new" href="/">＋ 新建任务</a>
+    </header>
+
+    <section class="hero">
+      <div>
+        <div class="hero-label">Background task</div>
+        <h1 id="hero-title">正在处理文章</h1>
+        <div class="task-meta">任务 ID：<code id="task-id">{{ task.id }}</code><button class="copy" id="copy">复制任务链接</button></div>
+      </div>
+      <div class="result-action">
+        <a class="download" id="download" href="/tasks/{{ task.id }}/download">处理完成后可下载</a>
+        <div class="download-note" id="download-note">结果完成后保留 7 天</div>
+        <form method="post" action="/tasks/{{ task.id }}/retry-finalize"><button class="retry-finalize" id="retry-finalize" type="submit">重新打包</button></form>
+      </div>
+    </section>
+    <div class="task-error" id="task-error"></div>
+
+    <section class="overview">
+      <div class="card progress-card">
+        <div class="progress-head"><strong>整体进度</strong><span class="state" id="status">{{ task.status }}</span></div>
+        <div class="bar"><span id="bar" style="width:{{ task.progress }}%"></span></div>
+        <div class="progress-foot"><span><b id="processed">{{ task.processed }}</b> / <span id="total">{{ task.total }}</span> 已处理</span><span id="percent">{{ task.progress }}%</span></div>
+      </div>
+      <div class="card metric success"><span>成功</span><strong id="success">{{ task.success }}</strong></div>
+      <div class="card metric failed"><span>失败</span><strong id="failed">{{ task.failed }}</strong></div>
+      <div class="card metric"><span>等待中</span><strong id="remaining">{{ task.total - task.processed }}</strong></div>
+    </section>
+
+    <section class="card table-card">
+      <div class="table-toolbar">
+        <div class="filters" id="filters">
+          <button class="filter active" data-filter="all">全部</button>
+          <button class="filter" data-filter="processing">处理中</button>
+          <button class="filter" data-filter="completed">成功</button>
+          <button class="filter" data-filter="failed">失败</button>
+          <button class="filter" data-filter="queued">等待中</button>
+        </div>
+        <input class="search" id="search" placeholder="搜索 URL">
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>文章 URL</th><th>状态</th><th>处理信息</th></tr></thead>
+          <tbody id="items"></tbody>
+        </table>
+        <div class="empty" id="empty" hidden>没有符合当前筛选条件的文章</div>
+      </div>
+    </section>
+  </div>
+  <script>
+    const taskId = {{ task.id | tojson }};
+    const recentKey = "blog-downloader-recent-tasks";
+    const terminal = new Set(["completed","completed_with_errors","queue_error","finalize_error"]);
+    const labels = {queued:"等待中",processing:"处理中",retrying:"正在重试",completed:"Word 已生成",failed:"失败",finalizing:"正在打包",completed_with_errors:"完成，有失败项",queue_error:"入队失败",finalize_error:"打包失败"};
+    const startedAt = Date.now();
+    let timer, latestTask = {items:[]}, activeFilter = "all";
+    const escapeHtml = value => { const div=document.createElement("div"); div.textContent=value||""; return div.innerHTML; };
+    const matchesFilter = item => activeFilter === "all" || item.status === activeFilter || (activeFilter === "processing" && item.status === "retrying");
+    function saveRecent(task) {
+      let tasks = [];
+      try { tasks = JSON.parse(localStorage.getItem(recentKey) || "[]"); } catch (_) {}
+      const existing = tasks.find(item => item.id === taskId);
+      const record = {
+        id: taskId, status: task.status, progress: task.progress, total: task.total,
+        createdAt: existing?.createdAt || new Date().toISOString(), lastVisitedAt: new Date().toISOString()
+      };
+      tasks = [record, ...tasks.filter(item => item.id !== taskId)].slice(0, 20);
+      localStorage.setItem(recentKey, JSON.stringify(tasks));
+    }
+    function renderItems() {
+      const query = document.querySelector("#search").value.trim().toLowerCase();
+      const items = (latestTask.items || []).filter(item => matchesFilter(item) && (!query || item.url.toLowerCase().includes(query)));
+      document.querySelector("#items").innerHTML = items.map(item => `<tr>
+        <td>${item.index}</td><td><div class="url" title="${escapeHtml(item.url)}">${escapeHtml(item.url)}</div></td>
+        <td><span class="badge ${escapeHtml(item.status)}">${labels[item.status] || escapeHtml(item.status)}</span></td>
+        <td class="error">${escapeHtml(item.error || (item.status === "completed" ? "Word 已生成" : ""))}</td>
+      </tr>`).join("");
+      document.querySelector("#empty").hidden = items.length > 0;
+    }
+    function render(task) {
+      latestTask = task;
+      saveRecent(task);
+      const remaining = task.total - task.processed;
+      document.querySelector("#bar").style.width = `${task.progress}%`;
+      document.querySelector("#percent").textContent = `${task.progress}%`;
+      document.querySelector("#status").textContent = labels[task.status] || task.status;
+      document.querySelector("#processed").textContent = task.processed;
+      document.querySelector("#total").textContent = task.total;
+      document.querySelector("#success").textContent = task.success;
+      document.querySelector("#failed").textContent = task.failed;
+      document.querySelector("#remaining").textContent = remaining;
+      document.querySelector("#hero-title").textContent = terminal.has(task.status) ? "任务处理完成" : "正在处理文章";
+      const download = document.querySelector("#download");
+      const downloadable = Boolean(task.zip_download_url);
+      download.classList.toggle("visible", downloadable);
+      download.textContent = downloadable ? "下载 Word ZIP" : "处理完成后可下载";
+      download.setAttribute("aria-disabled", downloadable ? "false" : "true");
+      document.querySelector("#download-note").textContent = downloadable ? "ZIP 结果将在 7 天后自动删除" : `还需处理 ${remaining} 篇文章`;
+      const taskError = document.querySelector("#task-error");
+      taskError.textContent = task.error ? `任务错误：${task.error}` : "";
+      taskError.classList.toggle("visible", Boolean(task.error));
+      document.querySelector("#retry-finalize").classList.toggle("visible", task.status === "finalize_error");
+      renderItems();
+    }
+    async function refresh() {
+      try {
+        const response = await fetch(`/api/tasks/${taskId}`);
+        render(await response.json());
+      } catch (_) {}
+      if (!terminal.has(latestTask.status) && !document.hidden) timer=setTimeout(refresh,Date.now()-startedAt<60000?5000:15000);
+    }
+    document.querySelector("#filters").addEventListener("click", event => {
+      const button=event.target.closest("[data-filter]"); if(!button)return;
+      activeFilter=button.dataset.filter;
+      document.querySelectorAll(".filter").forEach(item=>item.classList.toggle("active",item===button));
+      renderItems();
+    });
+    document.querySelector("#search").addEventListener("input",renderItems);
+    document.querySelector("#copy").addEventListener("click",async event=>{
+      await navigator.clipboard.writeText(location.href); event.target.textContent="已复制";
+      setTimeout(()=>event.target.textContent="复制任务链接",1500);
+    });
+    document.addEventListener("visibilitychange",()=>{clearTimeout(timer);if(!document.hidden)refresh();});
+    refresh();
+  </script>
+</body>
+</html>
